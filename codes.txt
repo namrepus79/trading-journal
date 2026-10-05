@@ -1,0 +1,8 @@
+# One stock code per line (no .TW needed). Listed and OTC stocks both work.
+00990A
+2330
+00981A
+00635U
+3037
+2454
+2408

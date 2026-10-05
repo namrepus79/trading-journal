@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trading Journal</title>
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--ink:#14213d;--mut:#6b7686;--line:#dfe3ea;--acc:#3a4fd1;--up:#d6293e;--dn:#14915a;--row:#f7f8fb;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#171e2e;--ink:#e8ecf5;--mut:#8f9ab0;--line:#2a3347;--acc:#7b8cff;--up:#ff5a6e;--dn:#34c88a;--row:#1c2438}}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#171e2e;--ink:#e8ecf5;--mut:#8f9ab0;--line:#2a3347;--acc:#7b8cff;--up:#ff5a6e;--dn:#34c88a;--row:#1c2438}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+.w{max-width:1080px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pf{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+button,select,input,textarea{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+button{cursor:pointer}button:hover{border-color:var(--acc)}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.x{border:0;background:none;color:var(--mut);padding:2px 6px}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sum{display:flex;gap:28px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:12px}
+.sum small{display:block;color:var(--mut)}.sum b{font-size:22px;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 14px}
+.tabs button.on{color:var(--acc);border-color:var(--acc);background:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{color:var(--mut);font-weight:500;text-align:right;padding:8px;white-space:nowrap}
+td{padding:9px 8px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tr.h{cursor:pointer}tr.h:hover td{background:var(--row)}
+.up{color:var(--up)}.dn{color:var(--dn)}.m{color:var(--mut)}
+.note{white-space:normal;text-align:left;min-width:180px;max-width:360px}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px;margin-left:4px;color:var(--mut)}
+.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.f label{display:block;color:var(--mut);font-size:12px}.f input,.f select,.f textarea{width:100%}
+.span{grid-column:1/-1}
+.pies{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.pie{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lg div{display:flex;align-items:center;gap:6px;white-space:nowrap}.lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sub{background:var(--row)}
+.sub td{border-top:1px dashed var(--line)}
+.tg{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0}
+.tg select{padding:4px 6px}
+.empty{color:var(--mut);padding:20px;text-align:center}
+</style></head><body><div class="w" id="app"></div>
+<script>
+const K='tj-v1';let S=null;
+try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
+S=S||{pf:[{id:'p1',name:'Main account'}],stocks:{},trades:[]};S.idx=S.idx||{};S.px=S.px||{};
+let cur='all',tab='hold',open={},per={from:'',to:'',pid:'all'};let dlg=null,msg='',cmp=['all'];
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const n0=v=>Math.round(v).toLocaleString(),n2=v=>v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const cl=v=>v>0?'up':v<0?'dn':'';const sg=v=>(v>0?'▲ ':v<0?'▼ ':'')+n0(Math.abs(v));
+const pc=v=>isFinite(v)?(v>0?'+':'')+(v*100).toFixed(2)+'%':'-';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const TAGS={term:['Long term','Short term'],income:['Fixed income','Not fixed income'],style:['Offensive','Defensive'],type:['ETF','Stock']};
+const TL={term:'Term',income:'Income',style:'Style',type:'Type'};
+const COL=['#3a4fd1','#e8913a','#1fa971','#c2418a','#2aa5c9','#8a63d2','#b5a31f','#8f9ab0'];
+
+function replay(){ // average-cost method, per portfolio + stock
+  const pos={},res={};
+  [...S.trades].sort((a,b)=>a.date.localeCompare(b.date)||a.ts-b.ts).forEach(t=>{
+    const k=t.pid+'|'+t.code,p=pos[k]=pos[k]||{pid:t.pid,code:t.code,sh:0,cost:0,real:0,div:0};
+    if(t.side==='buy'){p.sh+=t.shares;p.cost+=t.shares*t.price+t.fee;res[t.id]=null}else if(t.side==='div'){const d=t.shares*t.price-t.fee;p.div+=d;res[t.id]=d}
+    else{const avg=p.sh?p.cost/p.sh:t.price,r=t.shares*t.price-t.fee-avg*t.shares;res[t.id]=r;p.real+=r;p.cost-=avg*t.shares;p.sh-=t.shares}
+  });
+  return {pos,res};
+}
+function holdings(){
+  const {pos,res}=replay(),by={};
+  Object.values(pos).filter(p=>cur==='all'||p.pid===cur).forEach(p=>{
+    const h=by[p.code]=by[p.code]||{code:p.code,sh:0,cost:0,real:0,div:0};h.div+=p.div;h.sh+=p.sh;h.cost+=p.cost;h.real+=p.real});
+  const rows=Object.values(by).map(h=>{const s=S.stocks[h.code]||{},px=s.price||0;
+    return {...h,name:s.name||h.code,px,avg:h.sh?h.cost/h.sh:0,mv:h.sh*px,unr:h.sh*px-h.cost}});
+  return {rows,res};
+}
+function pie(rows,key){
+  const m={};rows.filter(r=>r.sh>0&&r.mv>0).forEach(r=>{const l=(S.stocks[r.code]||{})[key]||'Unlabeled';m[l]=(m[l]||0)+r.mv});
+  const d=Object.entries(m).sort((a,b)=>b[1]-a[1]),T=d.reduce((a,x)=>a+x[1],0);
+  if(!T)return '<div class="empty">No market value yet.</div>';
+  let a0=-Math.PI/2,sv='<svg width="150" height="150" viewBox="-75 -75 150 150" role="img" aria-label="'+TL[key]+' allocation">';
+  d.forEach(([l,v],i)=>{const f=v/T,a1=a0+f*2*Math.PI,c=COL[i%COL.length];
+    if(f>0.9999)sv+=`<circle r="70" fill="${c}"/>`;
+    else sv+=`<path d="M0 0L${70*Math.cos(a0)} ${70*Math.sin(a0)}A70 70 0 ${f>.5?1:0} 1 ${70*Math.cos(a1)} ${70*Math.sin(a1)}Z" fill="${c}"/>`;a0=a1});
+  sv+='</svg>';
+  return `<div class="pie">${sv}<div class="lg">${d.map(([l,v],i)=>`<div><i style="background:${COL[i%COL.length]}"></i>${esc(l)} <b>${(v/T*100).toFixed(1)}%</b></div>`).join('')}</div></div>`;
+}
+const pname=id=>(S.pf.find(p=>p.id===id)||{name:'?'}).name;
+
+function render(){
+  const {rows,res}=holdings(),act=rows.filter(r=>r.sh>0);
+  const mv=act.reduce((a,r)=>a+r.mv,0),unr=act.reduce((a,r)=>a+r.unr,0),real=rows.reduce((a,r)=>a+r.real,0),dvt=rows.reduce((a,r)=>a+(r.div||0),0),cost=act.reduce((a,r)=>a+r.cost,0);
+  let h=`<div class="top"><h1>Trading Journal</h1><span><span class="m">${esc(pxNote)} </span><button onclick="loadPx(true)">Refresh prices</button> <button onclick="expo()">Export</button> <button onclick="$('#imp').click()">Import</button><input id="imp" type="file" accept=".json" hidden onchange="impo(this)"></span></div>
+  ${dlgH()}<div class="pf"><button class="${cur==='all'?'on':''}" onclick="cur='all';render()">All accounts</button>`+
+  S.pf.map(p=>`<button class="${cur===p.id?'on':''}" onclick="cur='${p.id}';render()">${esc(p.name)}</button>`).join('')+
+  `<button onclick="addPf()">+ Account</button>`+(cur!=='all'?`<button class="x" onclick="renPf()">Rename</button><button class="x" onclick="delPf()">Delete</button>`:'')+`</div>
+  <div class="sum"><div><small>Market value (TWD)</small><b>${n0(mv)}</b></div>
+  <div><small>Realized P&amp;L</small><b class="${cl(real)}">${sg(real)}</b></div>
+  <div><small>Dividends (net)</small><b class="${cl(dvt)}">${sg(dvt)}</b></div><div><small>Unrealized P&amp;L</small><b class="${cl(unr)}">${sg(unr)} <span style="font-size:14px">${cost?pc(unr/cost):''}</span></b></div></div>
+  <div class="tabs">${[['hold','Holdings'],['trades','Trades'],['alloc','Allocation'],['chart','Charts'],['per','Period results'],['px','Update prices']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</div>`;
+  if(tab==='hold')h+=holdTab(rows);
+  if(tab==='trades')h+=form()+tradeTable(S.trades.filter(t=>cur==='all'||t.pid===cur),res,true);
+  if(tab==='alloc')h+=`<div class="card m">Weighted by current market value of open positions${cur==='all'?' across all accounts':' in this account'}. Set the labels by expanding a stock in Holdings.</div><div class="pies">`+Object.keys(TAGS).map(k=>`<div class="card"><b>${TL[k]}</b>${pie(rows,k)}</div>`).join('')+'</div>';
+  if(tab==='per')h+=perTab(res);
+  if(tab==='chart')h+=chartTab();
+  if(tab==='px')h+=pxTab();
+  $('#app').innerHTML=h;
+}
+function holdTab(rows){
+  if(!rows.length)return '<div class="card empty">No holdings yet. Record your first trade in the Trades tab.</div>';
+  let h='<div class="card sc"><table><tr><th>Stock</th><th>Price</th><th>Shares</th><th>Avg cost</th><th>Market value</th><th>Realized</th><th>Unrealized</th></tr>';
+  rows.sort((a,b)=>b.mv-a.mv).forEach(r=>{const s=S.stocks[r.code]||{},o=open[r.code];
+    h+=`<tr class="h" onclick="open['${r.code}']=!open['${r.code}'];render()"><td>${esc(r.name)}<br><span class="m">${esc(r.code)}</span><br><span onclick="event.stopPropagation()">${Object.keys(TAGS).map(k=>sel(r.code,k)).join('')}</span></td>
+    <td onclick="event.stopPropagation()"><input type="number" step="any" style="width:90px" value="${r.px||''}" onchange="setPx('${r.code}',this.value)"></td>
+    <td>${n0(r.sh)}</td><td>${n2(r.avg)}</td><td>${n0(r.mv)}</td><td class="${cl(r.real)}">${r.real?sg(r.real):'-'}</td>
+    <td class="${cl(r.unr)}">${r.sh?sg(r.unr)+'<br>'+pc(r.unr/r.cost):'-'}</td></tr>`;
+    if(o){h+=`<tr class="sub"><td colspan="7">`+
+      tradeTable(S.trades.filter(t=>t.code===r.code&&(cur==='all'||t.pid===cur)),null,false)+`</td></tr>`}});
+  return h+'</table></div>';
+}
+function tradeTable(ts,res,del){
+  if(!ts.length)return '<div class="card empty">No trades recorded.</div>';
+  res=res||replay().res;
+  ts=[...ts].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  return `<div class="card sc"><table><tr><th>Date</th><th>Stock</th><th>Account</th><th>Side</th><th>Shares</th><th>Price</th><th>Result</th><th style="text-align:left">Why I did it</th>${del?'<th></th>':''}</tr>`+
+  ts.map(t=>{const s=S.stocks[t.code]||{},px=s.price,r=res[t.id];
+    const out=t.side==='buy'?(px?`<span class="${cl(px-t.price)}">${pc(px/t.price-1)}</span> <span class="m">vs now</span>`:'-'):`<span class="${cl(r)}">${sg(r)}</span>`;
+    return `<tr><td>${t.date}</td><td>${esc(s.name||t.code)} <span class="m">${esc(t.code)}</span></td><td>${esc(pname(t.pid))}</td><td>${{buy:'Buy',sell:'Sell',div:'Dividend'}[t.side]}</td><td>${n0(t.shares)}</td><td>${n2(t.price)}</td><td>${out}</td><td class="note">${esc(t.note)}</td>${del?`<td><button class="x" aria-label="Delete trade" onclick="delT('${t.id}')">🗑</button></td>`:''}</tr>`}).join('')+'</table></div>';
+}
+function form(){
+  const d=new Date().toISOString().slice(0,10);
+  return `<div class="card"><div class="f">
+  <div><label>Date</label><input id="fd" type="date" value="${d}"></div>
+  <div><label>Account</label><select id="fp">${S.pf.map(p=>`<option value="${p.id}"${cur===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+  <div><label>Stock code</label><input id="fc" placeholder="2330.TW" onchange="fillName()"></div>
+  <div><label>Name</label><input id="fn"></div>
+  <div><label>Type</label><select id="fs" onchange="calcFee()"><option value="buy">Buy</option><option value="sell">Sell</option><option value="div">Dividend (price = per share)</option></select></div>
+  <div><label>Shares</label><input id="fh" onchange="calcFee()" type="number" min="0" step="any"></div>
+  <div><label>Price</label><input id="fx" onchange="calcFee()" type="number" min="0" step="any"></div>
+  <div><label>Fees &amp; tax (auto)</label><input id="ff" type="number" min="0" step="any" value="0"></div>
+  <div><label>Broker discount (0.6 = 60%)</label><input id="fk" type="number" step="any" value="${S.disc||1}" onchange="calcFee()"></div><div><label>TAIEX that day (optional)</label><input id="fi" type="number" step="any"></div>
+  <div class="span"><label>Why did you make this decision?</label><textarea id="fr" rows="2" placeholder="Thesis, trigger, what would make you exit…"></textarea></div>
+  <div class="span"><button class="pri" onclick="addT()">Save trade</button> <span id="fe" class="up"></span></div></div></div>`;
+}
+function perTab(res){
+  const f=per.from,t=per.to;
+  const ts=S.trades.filter(x=>(per.pid==='all'||x.pid===per.pid)&&(!f||x.date>=f)&&(!t||x.date<=t));
+  let bought=0,sold=0,real=0,lot=0,dv=0;
+  ts.forEach(x=>{const v=x.shares*x.price;if(x.side==='buy'){bought+=v;const px=(S.stocks[x.code]||{}).price;if(px)lot+=(px-x.price)*x.shares}else if(x.side==='div')dv+=res[x.id]||0;else{sold+=v;real+=res[x.id]||0}});
+  return `<div class="card"><div class="f"><div><label>From</label><input type="date" value="${f}" onchange="per.from=this.value;render()"></div>
+  <div><label>To</label><input type="date" value="${t}" onchange="per.to=this.value;render()"></div>
+  <div><label>Account</label><select onchange="per.pid=this.value;render()"><option value="all">All accounts</option>${S.pf.map(p=>`<option value="${p.id}"${per.pid===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div></div></div>
+  <div class="sum"><div><small>Trades in period</small><b>${ts.length}</b></div><div><small>Bought</small><b>${n0(bought)}</b></div><div><small>Sold</small><b>${n0(sold)}</b></div>
+  <div><small>Realized from sells</small><b class="${cl(real)}">${sg(real)}</b></div>
+  <div><small>Dividends (net)</small><b class="${cl(dv)}">${sg(dv)}</b></div><div><small>Bought lots now (vs current price)</small><b class="${cl(lot)}">${sg(lot)}</b></div>
+  <div><small>Total result</small><b class="${cl(real+lot+dv)}">${sg(real+lot+dv)}</b></div></div>`+tradeTable(ts,res,false);
+}
+function fillName(){const c=$('#fc').value.trim().toUpperCase();$('#fc').value=c;const s=S.stocks[c];if(s&&!$('#fn').value)$('#fn').value=s.name||'';calcFee()}
+function addT(){
+  const c=$('#fc').value.trim().toUpperCase(),sh=+$('#fh').value,px=+$('#fx').value,d=$('#fd').value;
+  if(!c||!d||!(sh>0)||!(px>0)){$('#fe').textContent='Enter a date, stock code, shares and price.';return}
+  const side=$('#fs').value,pid=$('#fp').value;
+  if(side==='sell'){const {pos}=replay(),p=pos[pid+'|'+c];if(!p||p.sh<sh){$('#fe').textContent='You hold '+(p?p.sh:0)+' shares of '+c+' in this account.';return}}
+  const s=S.stocks[c]=S.stocks[c]||{};if($('#fn').value)s.name=$('#fn').value;S.disc=+$('#fk').value||1;const ix=+$('#fi').value;if(ix>0)S.idx[d]=ix;if(side!=='div'){if(!s.price)s.price=px;(S.px[c]=S.px[c]||{})[d]=px}
+  S.trades.push({id:uid(),ts:Date.now(),pid,code:c,date:d,side,shares:sh,price:px,fee:+$('#ff').value||0,note:$('#fr').value});
+  save();render();
+}
+function delT(id){ask('Delete this trade?','',()=>{S.trades=S.trades.filter(t=>t.id!==id);save();render()},1)}
+function setPx(c,v){S.stocks[c].price=+v||0;save();render()}
+function setTag(c,k,v){if(v)S.stocks[c][k]=v;else delete S.stocks[c][k];save();render()}
+function addPf(){ask('Account name','',n=>{const id='p'+uid();S.pf.push({id,name:n});cur=id;save();render()})}
+function renPf(){const p=S.pf.find(x=>x.id===cur);ask('New name',p.name,n=>{p.name=n;save();render()})}
+function delPf(){if(S.pf.length<2){msg='Keep at least one account.';return render()}ask('Delete this account and all its trades?','',()=>{S.trades=S.trades.filter(t=>t.pid!==cur);S.pf=S.pf.filter(p=>p.id!==cur);cur='all';save();render()},1)}
+function expo(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='trading-journal.json';a.click()}
+function impo(i){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.pf&&d.trades&&d.stocks){S=d;S.idx=S.idx||{};S.px=S.px||{};cur='all';save();render()}else{msg='Not a Trading Journal file.';render()}}catch(e){msg='Could not read that file.';render()}};if(i.files[0])r.readAsText(i.files[0])}
+
+function ask(label,val,cb,noin){dlg={label,val,cb,noin};render();setTimeout(()=>{const e=$('#dv');e&&e.focus()},0)}
+function dlgH(){if(!dlg)return msg?`<div class="card">${esc(msg)} <button class="x" aria-label="Dismiss" onclick="msg='';render()">✕</button></div>`:'';
+return `<div class="card"><label>${esc(dlg.label)} </label>${dlg.noin?'':`<input id="dv" value="${esc(dlg.val)}" onkeydown="if(event.key==='Enter')dok()">`} <button class="pri" onclick="dok()">OK</button> <button onclick="dlg=null;render()">Cancel</button></div>`}
+function dok(){const v=dlg.noin?true:$('#dv').value.trim(),f=dlg.cb;dlg=null;if(v)f(v);else render()}
+const sel=(c,k)=>`<select aria-label="${TL[k]}" style="font-size:12px;padding:2px;margin:3px 3px 0 0" onchange="setTag('${c}','${k}',this.value)"><option value="">${TL[k]}</option>${TAGS[k].map(v=>`<option${(S.stocks[c]||{})[k]===v?' selected':''}>${v}</option>`).join('')}</select>`;
+function calcFee(){const side=$('#fs').value,sh=+$('#fh').value,px=+$('#fx').value,c=$('#fc').value.trim().toUpperCase(),dsc=+$('#fk').value||1;
+if(!(sh>0&&px>0))return;const a=sh*px;
+if(side==='div'){$('#ff').value=a>=20000?Math.round(a*0.0211):0;return}
+const fee=Math.max(sh%1000?1:20,Math.floor(a*0.001425*dsc)),tp=(S.stocks[c]||{}).type,etf=tp?tp==='ETF':/^00/.test(c);
+$('#ff').value=side==='sell'?fee+Math.floor(a*(etf?0.001:0.003)):fee}
+function pxTab(){const d=new Date().toISOString().slice(0,10),cs=[...new Set(S.trades.map(t=>t.code))];
+return `<div class="card m">Prices refresh automatically from prices.json (updated by GitHub). Use this form only as a manual fallback. Each snapshot adds a point to the charts. Bulk paste: one <code>code price</code> per line, e.g. <code>2330 2500</code>.</div>
+<div class="card"><div class="f"><div><label>Date</label><input id="sd" type="date" value="${d}"></div><div><label>TAIEX (加權指數)</label><input id="si" type="number" step="any" value="${S.idx[d]||''}"></div></div>
+<div class="sc"><table>${cs.map(c=>`<tr><td>${esc((S.stocks[c]||{}).name||c)} <span class="m">${esc(c)}</span></td><td><input class="sp" data-c="${c}" type="number" step="any" value="${(S.stocks[c]||{}).price||''}" style="width:110px"></td></tr>`).join('')}</table></div>
+<div class="f" style="margin-top:8px"><div class="span"><label>Bulk paste</label><textarea id="sb" rows="3"></textarea></div></div>
+<p><button class="pri" onclick="savePx()">Save snapshot</button></p></div>`}
+function savePx(){const d=$('#sd').value;if(!d)return;const ix=+$('#si').value;if(ix>0)S.idx[d]=ix;
+const cs=[...new Set(S.trades.map(t=>t.code))],set=(c,v)=>{if(v>0){S.stocks[c].price=v;(S.px[c]=S.px[c]||{})[d]=v}};
+document.querySelectorAll('.sp').forEach(e=>set(e.dataset.c,+e.value));
+($('#sb').value||'').split('\n').forEach(l=>{const m=l.trim().split(/[\s,]+/);if(m.length<2)return;const k=m[0].toUpperCase(),c=cs.find(c=>c===k||c.split('.')[0]===k);if(c)set(c,+m[m.length-1])});
+save();msg='Saved snapshot for '+d+'.';tab='hold';render()}
+function pxs(c){const o={...(S.px[c]||{})};S.trades.forEach(t=>{if(t.code===c&&t.side!=='div'&&!(t.date in o))o[t.date]=t.price});return Object.entries(o).sort((a,b)=>a[0].localeCompare(b[0]))}
+function trk(tg,ds){
+ const ts=S.trades.filter(t=>tg==='all'||t.pid===tg||'c:'+t.code===tg).sort((a,b)=>a.date.localeCompare(b.date)||a.ts-b.ts),sh={},H={};let i=0,inn=0,out=0;
+ return ds.map(d=>{
+  while(i<ts.length&&ts[i].date<=d){const t=ts[i++],v=t.shares*t.price;
+   if(t.side==='buy'){sh[t.code]=(sh[t.code]||0)+t.shares;inn+=v+t.fee}else{if(t.side==='sell')sh[t.code]-=t.shares;out+=v-t.fee}}
+  if(!i)return null;
+  let val=0;for(const c in sh){if(!sh[c])continue;const h=H[c]=H[c]||pxs(c);let p=0;for(const [k,v] of h){if(k<=d)p=v;else break}val+=sh[c]*p}
+  return {val,inn,out,ret:inn>0?(val+out-inn)/inn:null}})}
+const idxAt=d=>{let r=null;Object.keys(S.idx).sort().forEach(k=>{if(k<=d)r=S.idx[k]});return r};
+function togC(t){cmp=cmp.includes(t)?cmp.filter(x=>x!==t):[...cmp,t];render()}
+function lines(ser,ds,fmt){
+ const vs=ser.flatMap(s=>s.v).filter(x=>x!=null);if(ds.length<2||vs.length<2)return '<div class="empty">Not enough data points yet. Record trades, then save price snapshots in Update prices.</div>';
+ const W=640,H=240,L=56,R=10,T=10,B=24,t0=Date.parse(ds[0]),t1=Date.parse(ds[ds.length-1]);let lo=Math.min(...vs),hi=Math.max(...vs);if(hi===lo){hi+=1;lo-=1}
+ const X=i=>L+(Date.parse(ds[i])-t0)/(t1-t0||1)*(W-L-R),Y=v=>T+(hi-v)/(hi-lo)*(H-T-B);let g='';
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4;g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`}
+ g+=`<text x="${L}" y="${H-6}" font-size="11" fill="var(--mut)">${ds[0]}</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--mut)">${ds[ds.length-1]}</text>`;
+ ser.forEach(s=>{let p='',dt='';s.v.forEach((v,i)=>{if(v==null)return;const x=X(i).toFixed(1),y=Y(v).toFixed(1);p+=(p?'L':'M')+x+' '+y;dt+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${s.col}"/>`});g+=`<path d="${p}" fill="none" stroke="${s.col}" stroke-width="2"/>${dt}`});
+ return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img">${g}</svg><div class="lg" style="display:flex;gap:14px;flex-wrap:wrap">${ser.map(s=>`<div><i style="background:${s.col}"></i>${esc(s.name)}</div>`).join('')}</div>`}
+function chartTab(){
+ const ds=[...new Set([...S.trades.map(t=>t.date),...Object.keys(S.idx),...Object.values(S.px).flatMap(o=>Object.keys(o))])].sort(),a=trk(cur,ds);
+ const opts=[['all','All accounts'],...S.pf.map(p=>[p.id,p.name]),...[...new Set(S.trades.map(t=>t.code))].map(c=>['c:'+c,(S.stocks[c]||{}).name||c])];
+ const ser=cmp.filter(t=>opts.some(o=>o[0]===t)).map((t,i)=>({name:opts.find(o=>o[0]===t)[1],col:COL[i%7],v:trk(t,ds).map(x=>x&&x.ret!=null?x.ret*100:null)}));
+ const fi=ds.findIndex((d,i)=>ser.some(s=>s.v[i]!=null)),ix=ds.map(idxAt),b=fi>=0?ix[fi]:null;
+ if(b)ser.push({name:'TAIEX (index)',col:'#8f9ab0',v:ix.map((x,i)=>i>=fi&&x?(x/b-1)*100:null)});
+ return `<div class="card"><b>Value vs money invested</b> <span class="m">(${cur==='all'?'all accounts':esc(pname(cur))})</span>`+lines([{name:'Market value',col:COL[0],v:a.map(x=>x&&x.val)},{name:'Net money in (buys − sells − dividends)',col:COL[1],v:a.map(x=>x&&x.inn-x.out)}],ds,n0)+`</div>
+ <div class="card"><b>Return vs index</b><div class="pf" style="margin:8px 0">${opts.map(o=>`<button class="${cmp.includes(o[0])?'on':''}" onclick="togC('${o[0]}')">${esc(o[1])}</button>`).join('')}</div>`+lines(ser,ds,v=>v.toFixed(1)+'%')+
+ `<p class="m">Return = profit ÷ money invested so far, so it depends on when you bought; it is not a time-weighted return. The index line needs TAIEX levels: enter them in Update prices or in the trade form.</p></div>`}
+let pxNote='';
+async function loadPx(manual){
+ try{const r=await fetch('prices.json?'+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();if(!j.date)throw 0;
+  Object.keys(S.stocks).forEach(c=>{const v=j.prices[c.split('.')[0].toUpperCase()];if(v>0){S.stocks[c].price=v;(S.px[c]=S.px[c]||{})[j.date]=v}});
+  if(j.index>0)S.idx[j.date]=j.index;save();pxNote='Prices as of '+j.updated}
+ catch(e){pxNote='Prices not loaded'}
+ if(manual||!(tab==='trades'||tab==='px'||dlg))render()}
+render();loadPx();setInterval(loadPx,300000);
+</script></body></html>
